@@ -1,0 +1,41 @@
+# env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# node
+node_modules/
+apps/web/dist/
+.vite/
+*.tsbuildinfo
+
+# docker / data
+.data/
+postgres-data/
+minio-data/
+
+# editors & os
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# playwright artifacts
+test-results/
+playwright-report/
+videos/

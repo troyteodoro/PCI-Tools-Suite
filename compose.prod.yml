@@ -1,0 +1,146 @@
+# Production overlay.
+#
+#   docker compose -f docker-compose.yml -f compose.prod.yml up -d
+#
+# Differences from local that matter:
+#   * images come from a registry, pinned by digest, built in CI — never built on the host
+#   * secrets arrive as mounted files, not environment variables
+#   * no port is published except Caddy's; Postgres, Redis and MinIO stay on the internal
+#     network
+#   * read-only root filesystems, dropped capabilities, resource limits
+#
+# Before first deploy: cp .env.example .env.production, fill it in, and place the files
+# named under `secrets:` in ./secrets/ with mode 0600.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB: ${POSTGRES_DB:-demarc}
+    secrets:
+      - postgres_user
+      - postgres_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    deploy:
+      resources:
+        limits: { memory: 2g }
+    restart: always
+
+  redis:
+    command: ['redis-server', '--save', '900', '1', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    deploy:
+      resources:
+        limits: { memory: 512m }
+    restart: always
+
+  minio:
+    deploy:
+      resources:
+        limits: { memory: 1g }
+    restart: always
+
+  migrate:
+    image: ${DEMARC_REGISTRY}/demarc-api:${DEMARC_VERSION}
+    build: !reset null
+    environment:
+      DEMARC_ENVIRONMENT: production
+    restart: 'no'
+
+  api:
+    image: ${DEMARC_REGISTRY}/demarc-api:${DEMARC_VERSION}
+    build: !reset null
+    environment:
+      DEMARC_ENVIRONMENT: production
+      DEMARC_DEBUG: 'false'
+      DEMARC_LOG_JSON: 'true'
+      DEMARC_CORS_ORIGINS: ${DEMARC_PUBLIC_ORIGIN}
+    secrets:
+      - demarc_secret_key
+      - demarc_app_db_password
+      - demarc_s3_secret_access_key
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      replicas: 2
+      resources:
+        limits: { memory: 1g }
+    restart: always
+
+  worker:
+    image: ${DEMARC_REGISTRY}/demarc-worker:${DEMARC_VERSION}
+    build: !reset null
+    environment:
+      DEMARC_ENVIRONMENT: production
+      DEMARC_LOG_JSON: 'true'
+    secrets:
+      - demarc_secret_key
+      - demarc_app_db_password
+      - demarc_s3_secret_access_key
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits: { memory: 1g }
+    restart: always
+
+  web:
+    image: ${DEMARC_REGISTRY}/demarc-web:${DEMARC_VERSION}
+    build: !reset null
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+
+  # The only service that publishes a port. Terminates TLS with automatic certificates.
+  caddy:
+    image: caddy:2.8-alpine
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DEMARC_PUBLIC_HOSTNAME: ${DEMARC_PUBLIC_HOSTNAME}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+    restart: always
+
+secrets:
+  postgres_user:
+    file: ./secrets/postgres_user
+  postgres_password:
+    file: ./secrets/postgres_password
+  demarc_secret_key:
+    file: ./secrets/demarc_secret_key
+  demarc_app_db_password:
+    file: ./secrets/demarc_app_db_password
+  demarc_s3_secret_access_key:
+    file: ./secrets/demarc_s3_secret_access_key
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  caddy-data:
+  caddy-config:

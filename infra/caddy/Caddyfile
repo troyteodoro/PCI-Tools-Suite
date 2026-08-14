@@ -1,0 +1,43 @@
+{
+	# Automatic HTTPS with Let's Encrypt. Set DEMARC_ACME_EMAIL in .env.production.
+	email {$DEMARC_ACME_EMAIL}
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+{$DEMARC_PUBLIC_HOSTNAME} {
+	encode zstd gzip
+
+	# HSTS. Only meaningful because Caddy redirects http→https by default.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# API. The health endpoints stay unauthenticated for the orchestrator.
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle /healthz {
+		reverse_proxy api:8000
+	}
+
+	handle /readyz {
+		reverse_proxy api:8000
+	}
+
+	# Everything else is the SPA.
+	handle {
+		reverse_proxy web:8080
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

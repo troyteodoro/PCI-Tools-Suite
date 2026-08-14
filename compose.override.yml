@@ -1,0 +1,92 @@
+# Local development. Applied automatically by `docker compose up`.
+#
+# Source is bind-mounted and both servers reload, so a code change is visible without a
+# rebuild. Ports are published to localhost only — a laptop on a coffee-shop network
+# should not be serving anyone else's compliance tooling.
+
+services:
+  postgres:
+    ports:
+      - '127.0.0.1:5432:5432'
+
+  redis:
+    ports:
+      - '127.0.0.1:6379:6379'
+
+  minio:
+    ports:
+      - '127.0.0.1:9000:9000'
+      - '127.0.0.1:9001:9001'
+
+  # Creates the evidence bucket on first run so nothing has to be clicked in a console.
+  minio-init:
+    image: minio/mc:RELEASE.2024-11-21T17-21-54Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${DEMARC_S3_ACCESS_KEY_ID:-demarc} ${DEMARC_S3_SECRET_ACCESS_KEY:-demarc-dev-secret} &&
+      mc mb --ignore-existing local/${DEMARC_S3_BUCKET:-demarc-evidence} &&
+      mc version enable local/${DEMARC_S3_BUCKET:-demarc-evidence} &&
+      echo 'bucket ready'
+      "
+    restart: 'no'
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - '127.0.0.1:8025:8025'
+    environment:
+      MP_MAX_MESSAGES: 500
+    restart: unless-stopped
+
+  api:
+    command:
+      [
+        'uvicorn',
+        'demarc.main:app',
+        '--host',
+        '0.0.0.0',
+        '--port',
+        '8000',
+        '--reload',
+        '--reload-dir',
+        '/app/src',
+      ]
+    environment:
+      DEMARC_DEBUG: 'true'
+      DEMARC_LOG_LEVEL: DEBUG
+    volumes:
+      - ./apps/api/src:/app/src:ro
+      - ./apps/api/alembic:/app/alembic:ro
+    ports:
+      - '127.0.0.1:8000:8000'
+
+  worker:
+    command: ['arq', 'demarc.workers.main.WorkerSettings', '--watch', '/app/src']
+    environment:
+      DEMARC_LOG_LEVEL: DEBUG
+    volumes:
+      - ./apps/api/src:/app/src:ro
+
+  # Vite dev server with HMR, rather than the nginx production image.
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    command: ['sh', '-c', 'npm install --no-audit --no-fund && npm run dev']
+    environment:
+      VITE_API_TARGET: http://api:8000
+    volumes:
+      - ./apps/web:/app
+      # Keeps the container's node_modules out of the host bind mount, so a linux
+      # container and a macOS host do not fight over native builds.
+      - web-node-modules:/app/node_modules
+    ports:
+      - '127.0.0.1:5173:5173'
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  web-node-modules:

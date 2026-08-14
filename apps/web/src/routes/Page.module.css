@@ -1,0 +1,174 @@
+.header {
+  margin-bottom: 22px;
+}
+
+.kicker {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  margin-bottom: 6px;
+}
+
+.title {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.lede {
+  font-size: 12.5px;
+  color: var(--app-text-secondary);
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.stat {
+  padding: 14px 16px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-md);
+}
+
+.statLabel {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.statValue {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 7px;
+  font-size: 27px;
+  letter-spacing: -0.02em;
+}
+
+.statUnit {
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+
+.statNote {
+  font-size: 10.5px;
+  color: var(--app-text-muted);
+  margin-top: 9px;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.toolCard {
+  display: block;
+  padding: 15px 16px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-md);
+  color: inherit;
+  text-decoration: none;
+}
+
+.toolCard:hover {
+  background: var(--app-accent-wash);
+  text-decoration: none;
+  color: inherit;
+}
+
+.toolHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 7px;
+}
+
+.toolName {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.toolBody {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--app-text-muted);
+  text-wrap: pretty;
+  margin-bottom: 10px;
+}
+
+.toolMeta {
+  display: flex;
+  gap: 14px;
+  font-size: 10.5px;
+  color: var(--app-text-muted);
+}
+
+.emptyState {
+  padding: 22px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 26px;
+}
+
+.emptyTitle {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.emptyBody {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--app-text-secondary);
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+
+.milestoneBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.chainOk {
+  color: var(--app-ok);
+}
+
+.chainBad {
+  color: var(--app-blocking);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.hashCell {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--app-text-muted);
+}

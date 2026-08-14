@@ -1,0 +1,220 @@
+/* Design tokens for both themes.
+ *
+ * The mockups are NOT a pure token swap. Nocturne hardcodes dark values (#0f1119,
+ * #13151f) because the shared neutral ramp does not invert — neutral-100 is near-white
+ * in both design systems, so a component reaching for `--color-neutral-100` as a surface
+ * works in Modernist and is unreadable in Nocturne.
+ *
+ * So there are two layers here:
+ *   1. RAW  — the ramps exactly as shipped in the design systems under docs/mockups/_ds.
+ *   2. SEMANTIC (--app-*) — what components actually use. Each theme maps these itself.
+ *
+ * Components must only ever reference the --app-* layer. If you find yourself reaching
+ * for a raw ramp step in a component, the semantic layer is missing a token; add it here.
+ */
+
+/* ══════════════════════════════════════════════════ Modernist — light, Archivo, square */
+
+:root,
+:root[data-theme='modernist'] {
+  /* raw */
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-accent: #ec3013;
+  --color-accent-2: #e15b47;
+  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+
+  --color-neutral-100: #f8f4f4;
+  --color-neutral-200: #eae7e7;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-400: #bab6b6;
+  --color-neutral-500: #9b9797;
+  --color-neutral-600: #7d7979;
+  --color-neutral-700: #605d5d;
+  --color-neutral-800: #444141;
+  --color-neutral-900: #2d2b2b;
+
+  --color-accent-100: #fff2ef;
+  --color-accent-200: #ffe0d9;
+  --color-accent-300: #ffc4b8;
+  --color-accent-400: #ff9783;
+  --color-accent-500: #ff563c;
+  --color-accent-600: #dd2b0f;
+  --color-accent-700: #ae1800;
+  --color-accent-800: #7c1405;
+  --color-accent-900: #4d170e;
+
+  --font-heading: 'Archivo', system-ui, sans-serif;
+  --font-heading-weight: 800;
+  --font-body: 'Archivo', system-ui, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+
+  /* semantic */
+  --app-bg: var(--color-bg);
+  --app-surface: var(--color-surface);
+  --app-surface-raised: #ffffff;
+  --app-sidebar-bg: var(--color-neutral-100);
+  --app-rail-bg: var(--color-neutral-100);
+
+  --app-text: var(--color-text);
+  --app-text-secondary: var(--color-neutral-800);
+  --app-text-muted: var(--color-neutral-600);
+  --app-text-inverse: var(--color-bg);
+
+  --app-border: var(--color-divider);
+  --app-border-strong: 2px solid var(--color-divider);
+  --app-border-hairline: 1px solid var(--color-divider);
+
+  --app-accent: var(--color-accent);
+  --app-accent-hover: var(--color-accent-600);
+  --app-accent-active: var(--color-accent-700);
+  --app-accent-text: var(--color-accent-700);
+  --app-accent-wash: var(--color-accent-100);
+  --app-on-accent: var(--color-bg);
+
+  --app-track: var(--color-neutral-300);
+  --app-hover: color-mix(in srgb, var(--color-text) 7%, transparent);
+
+  --app-link: var(--color-accent-700);
+  --app-link-hover: var(--color-accent-800);
+  --app-scrollbar: var(--color-neutral-400);
+  --app-scrollbar-radius: 0px;
+
+  --app-font-scale: 1;
+  color-scheme: light;
+}
+
+/* ═══════════════════════════════════════════════════ Nocturne — dark, Inter, rounded */
+
+:root[data-theme='nocturne'] {
+  /* raw */
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-text: #e9e9ed;
+  --color-accent: #9184d9;
+  --color-accent-2: #a7a1db;
+  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+
+  --color-neutral-100: #f3f5fe;
+  --color-neutral-200: #e4e7f5;
+  --color-neutral-300: #cfd3e5;
+  --color-neutral-400: #b2b6ca;
+  --color-neutral-500: #9397ab;
+  --color-neutral-600: #75798c;
+  --color-neutral-700: #595d6c;
+  --color-neutral-800: #3f424d;
+  --color-neutral-900: #292b31;
+
+  --color-accent-100: #f5f4ff;
+  --color-accent-200: #e7e5fe;
+  --color-accent-300: #d2cefd;
+  --color-accent-400: #b5abfc;
+  --color-accent-500: #968ae0;
+  --color-accent-600: #796cbf;
+  --color-accent-700: #5d5294;
+  --color-accent-800: #423a6a;
+  --color-accent-900: #2b2741;
+
+  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-heading-weight: 500;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  --space-1: 2.8px;
+  --space-2: 5.6px;
+  --space-3: 8.4px;
+  --space-4: 11.2px;
+  --space-6: 16.8px;
+  --space-8: 22.4px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 0 0 1px #3f424d;
+  --shadow-md:
+    0 0 0 1px #595d6c,
+    0 6px 18px rgb(0 0 0 / 55%);
+  --shadow-lg:
+    0 0 0 1px #9397ab,
+    0 16px 40px rgb(0 0 0 / 65%);
+
+  /* semantic — the values the Nocturne mockup hardcodes, named */
+  --app-bg: #0f1119;
+  --app-surface: var(--color-surface);
+  --app-surface-raised: #2b2e3d;
+  --app-sidebar-bg: #13151f;
+  --app-rail-bg: #13151f;
+
+  --app-text: var(--color-text);
+  --app-text-secondary: var(--color-neutral-300);
+  --app-text-muted: var(--color-neutral-500);
+  --app-text-inverse: #0f1119;
+
+  --app-border: rgb(233 233 237 / 10%);
+  --app-border-strong: 1px solid rgb(233 233 237 / 16%);
+  --app-border-hairline: 1px solid rgb(233 233 237 / 10%);
+
+  --app-accent: var(--color-accent);
+  --app-accent-hover: var(--color-accent-400);
+  --app-accent-active: var(--color-accent-500);
+  --app-accent-text: var(--color-accent-300);
+  --app-accent-wash: rgb(145 132 217 / 14%);
+  --app-on-accent: #12131c;
+
+  --app-track: #2f3242;
+  --app-hover: rgb(233 233 237 / 6%);
+
+  --app-link: var(--color-accent-300);
+  --app-link-hover: var(--color-accent-200);
+  --app-scrollbar: #3f424d;
+  --app-scrollbar-radius: 8px;
+
+  --app-font-scale: 1;
+  color-scheme: dark;
+}
+
+/* Status colors.
+ *
+ * Both mockups render every state — blocking, review-due, on-track — in the single
+ * accent. That reads beautifully and is unusable: a blocking finding and a scheduled
+ * task must not look identical, and roughly 1 in 12 men cannot separate them by hue
+ * alone. Status gets its own scale, and every status in the UI also carries a label or
+ * an icon, never color alone.
+ */
+:root,
+:root[data-theme='modernist'] {
+  --app-blocking: #c81e0f;
+  --app-blocking-wash: #fdecea;
+  --app-warning: #a8620a;
+  --app-warning-wash: #fdf1e2;
+  --app-ok: #1f7a4d;
+  --app-ok-wash: #e8f5ee;
+  --app-info: var(--color-neutral-700);
+  --app-info-wash: var(--color-neutral-200);
+}
+
+:root[data-theme='nocturne'] {
+  --app-blocking: #ff8a7a;
+  --app-blocking-wash: rgb(255 138 122 / 14%);
+  --app-warning: #e8b464;
+  --app-warning-wash: rgb(232 180 100 / 14%);
+  --app-ok: #6ecf9b;
+  --app-ok-wash: rgb(110 207 155 / 14%);
+  --app-info: var(--color-neutral-400);
+  --app-info-wash: rgb(233 233 237 / 8%);
+}

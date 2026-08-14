@@ -1,0 +1,44 @@
+# syntax=docker/dockerfile:1.7
+#
+# General worker: drift reconciliation, evidence analysis, ROC archive assembly.
+#
+# The payment-page crawler is deliberately NOT here. It renders untrusted third-party
+# JavaScript and so gets its own image with no database or object-storage credentials,
+# added in M2 as Dockerfile.worker.crawl (PLAN.md §3, §8).
+
+FROM python:3.12-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+FROM base AS deps
+
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
+        build-essential libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+COPY src ./src
+RUN pip install --prefix=/install .
+
+FROM base AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 demarc
+
+COPY --from=deps /install /usr/local
+COPY --chown=demarc:demarc src ./src
+COPY --chown=demarc:demarc pyproject.toml ./pyproject.toml
+
+ENV PYTHONPATH=/app/src
+
+USER demarc
+
+CMD ["arq", "demarc.workers.main.WorkerSettings"]
