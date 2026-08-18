@@ -3,7 +3,7 @@
 # Production web image: Vite build served by nginx. Local development runs the Vite dev
 # server instead (see compose.override.yml), so this path is only exercised by prod builds.
 
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 
 WORKDIR /app
 
