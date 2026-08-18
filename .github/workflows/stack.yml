@@ -1,0 +1,107 @@
+name: stack
+
+# Builds the three images and runs the deployment end to end. This is the only check
+# that exercises the Dockerfiles, the init SQL, container ordering, the healthchecks and
+# the operational CLI together — the offline unit suite touches none of them.
+#
+# Path-filtered at the `on:` level rather than with a `changes` job, because this is
+# deliberately NOT a required status check: a pure frontend PR should not pay eight
+# minutes for it.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - 'apps/web/Dockerfile'
+      - 'apps/web/nginx.conf'
+      - 'docker-compose.yml'
+      - 'compose.*.yml'
+      - 'infra/**'
+      - 'scripts/smoke.sh'
+      - '.github/workflows/stack.yml'
+  push:
+    branches: [main]
+  schedule:
+    # Base images move underneath a pinned tag. Catch it on a Monday morning rather than
+    # during a release.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stack-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      # Build validation and the smoke fixture are the same artifacts, so build once.
+      # `load: true` puts them in the local daemon where compose.ci.yml expects them.
+      - name: Build api image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: apps/api
+          file: apps/api/Dockerfile.api
+          tags: demarc-api:ci
+          load: true
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build worker image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: apps/api
+          file: apps/api/Dockerfile.worker
+          tags: demarc-worker:ci
+          load: true
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
+
+      # Not started by the smoke stack (nginx serving a static build needs no
+      # integration test yet), but building it here is what catches a broken
+      # `npm ci` or a Vite build failure in the production image path.
+      - name: Build web image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: apps/web
+          tags: demarc-web:ci
+          load: true
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      # Exercise the documented developer path rather than a bespoke CI environment.
+      - name: Seed the environment file
+        run: cp .env.example .env
+
+      # Naming api and worker is enough: migrate and minio-init come along as
+      # service_completed_successfully dependencies, which is what lets `--wait`
+      # tolerate containers that exit.
+      - name: Bring the stack up
+        run: |
+          docker compose -f docker-compose.yml -f compose.ci.yml \
+            up -d --wait --wait-timeout 300 --quiet-pull api worker
+
+      - name: Smoke
+        env:
+          COMPOSE_FILES: -f docker-compose.yml -f compose.ci.yml
+        run: bash scripts/smoke.sh
+
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.yml -f compose.ci.yml ps -a
+          docker compose -f docker-compose.yml -f compose.ci.yml logs --no-color --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.yml -f compose.ci.yml down -v --remove-orphans

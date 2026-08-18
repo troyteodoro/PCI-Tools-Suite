@@ -1,0 +1,210 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only by default. No job in this workflow needs more.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Path filtering lives in a job rather than in `on.*.paths` on purpose: a workflow that
+  # never triggers leaves its required status checks pending forever and the PR cannot be
+  # merged. A job skipped by `if:` reports as skipped, which satisfies the check.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'infra/postgres/**'
+              - 'docker-compose.yml'
+              - 'compose.*.yml'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'apps/web/**'
+              - '.github/workflows/ci.yml'
+
+  api:
+    name: api (ruff, mypy, pytest)
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the lock-drift check below diffs against the base branch
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          # The version the images run. Do not track the runner's default; the whole
+          # point is to exercise the deployment target.
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/api/requirements-dev.txt
+
+      - name: Install pinned dependencies
+        run: pip install --require-hashes -r requirements-dev.txt
+
+      # Dependencies are pinned with hashes, but nothing stops someone editing
+      # pyproject.toml and leaving the lock behind — after which CI tests one set of
+      # versions and the images ship another. Re-resolving here instead would fail on any
+      # upstream release, so gate on the pair moving together.
+      - name: pyproject and the locks move together
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        run: |
+          changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          if grep -q '^apps/api/pyproject\.toml$' <<<"$changed" \
+             && ! grep -q '^apps/api/requirements\(-dev\)\?\.txt$' <<<"$changed"; then
+            echo "::error file=apps/api/pyproject.toml::dependencies changed without a regenerated lock — run 'make lock'"
+            exit 1
+          fi
+
+      # alembic is linted too. `make lint` used to check only src and tests, which is how
+      # 13 line-length violations accumulated in the one migration unnoticed.
+      - run: ruff check src tests alembic
+      - run: ruff format --check src tests
+      - run: mypy src
+
+      # The app is imported off PYTHONPATH rather than pip-installed, matching
+      # Dockerfile.api's ENV PYTHONPATH=/app/src.
+      - name: Offline unit suite
+        run: python -m pytest -q -m "not integration"
+        env:
+          PYTHONPATH: src
+
+  web:
+    name: web (eslint, tsc, build)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: apps/web/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      # `npm ci` and not `npm install`: this is the lockfile-drift gate.
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build # tsc --noEmit && vite build
+
+      # CLAUDE.md rule 5 / PLAN.md §8: the UI reports what evidence exists and what a
+      # rule found. Only a QSA determines compliance. Nothing else can enforce a claim
+      # about copy, and a rules engine cannot un-say it once shipped.
+      - name: The UI states evidence, not compliance
+        run: |
+          if grep -rniE '\b(you are|are now|is now|fully) compliant\b|\bcompliance (achieved|confirmed|verified)\b' \
+                 src --include='*.tsx' --include='*.ts' | grep -v 'ci:allow-compliance-copy'; then
+            echo "::error::UI copy asserts compliance. Report the evidence and the finding instead (PLAN.md §8)."
+            exit 1
+          fi
+
+  db:
+    name: db (migrations, tenant isolation)
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: demarc
+          POSTGRES_PASSWORD: demarc
+          POSTGRES_DB: demarc
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U demarc -d demarc"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      PYTHONPATH: src
+      DEMARC_MIGRATION_DATABASE_URL: postgresql+asyncpg://demarc:demarc@localhost:5432/demarc
+      DEMARC_DATABASE_URL: postgresql+asyncpg://demarc_app:demarc_app@localhost:5432/demarc
+      DEMARC_REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/api/requirements-dev.txt
+
+      - run: pip install --require-hashes -r requirements-dev.txt
+
+      # A service container cannot mount the repo (it starts before checkout), so the
+      # init SQL is applied by hand. That also exercises the file itself rather than
+      # trusting the postgres entrypoint to have run it.
+      - name: Create the least-privileged runtime role
+        working-directory: .
+        run: |
+          docker exec -i "${{ job.services.postgres.id }}" \
+            psql -v ON_ERROR_STOP=1 -U demarc -d demarc \
+            < infra/postgres/init/01-app-role.sql
+
+      - run: alembic upgrade head
+
+      - name: Exactly one migration head
+        run: |
+          heads=$(alembic heads | grep -c '(head)' || true)
+          if [ "$heads" -ne 1 ]; then
+            echo "::error::$heads migration heads. Two branches added migrations in parallel; merge them."
+            exit 1
+          fi
+
+      # The gate that matters most as M1 adds tables: models and migrations agreeing.
+      - name: Models and migrations agree
+        run: alembic check
+
+      - name: Downgrade and upgrade round trip
+        run: |
+          alembic downgrade base
+          alembic upgrade head
+
+      # Parametrized over DATA_PLANE_TABLES, so every table a later milestone adds is
+      # covered the moment it is registered (docs/adr/0001).
+      - name: Tenant isolation suite
+        run: python -m pytest -q -m integration

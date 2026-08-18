@@ -143,10 +143,16 @@ class ChainVerification:
 async def verify_chain(session: AsyncSession, *, org_id: uuid.UUID) -> ChainVerification:
     """Re-derive every hash and confirm the links. O(n) — run it in a worker for large logs."""
     entries = (
-        await session.execute(
-            select(AuditLogEntry).where(AuditLogEntry.org_id == org_id).order_by(AuditLogEntry.seq)
+        (
+            await session.execute(
+                select(AuditLogEntry)
+                .where(AuditLogEntry.org_id == org_id)
+                .order_by(AuditLogEntry.seq)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     expected_prev = GENESIS_HASH
     for index, entry in enumerate(entries, start=1):

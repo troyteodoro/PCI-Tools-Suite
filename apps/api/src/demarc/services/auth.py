@@ -119,9 +119,7 @@ async def authenticate(
 
     membership = (
         await session.execute(
-            select(Membership).where(
-                Membership.user_id == user.id, Membership.org_id == org.id
-            )
+            select(Membership).where(Membership.user_id == user.id, Membership.org_id == org.id)
         )
     ).scalar_one_or_none()
 
@@ -270,9 +268,7 @@ async def bootstrap_deployment(
     if await get_org_by_slug(session, slug) is not None:
         raise ConflictError(f"An organization with the slug {slug!r} already exists.")
 
-    org = Organization(
-        slug=slug, name=org_name, merchant_level=merchant_level, saq_type=saq_type
-    )
+    org = Organization(slug=slug, name=org_name, merchant_level=merchant_level, saq_type=saq_type)
     session.add(org)
     await session.flush()
 

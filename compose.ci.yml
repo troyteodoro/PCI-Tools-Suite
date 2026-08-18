@@ -1,0 +1,41 @@
+# CI overlay. The real topology, with images supplied by the workflow.
+#
+#   docker compose -f docker-compose.yml -f compose.ci.yml up -d --wait api worker
+#
+# Naming both compose files explicitly is the point: it suppresses the automatically
+# applied compose.override.yml, and with it the Vite dev server (a bind-mounted
+# `npm install` that CI has no use for) and mailpit. What remains is what production
+# runs, so the smoke test exercises the built images rather than a dev stack.
+#
+# Images are built and tagged by the workflow, never here — `build: !reset null` plus
+# `pull_policy: never` makes a missing image an immediate, obvious failure instead of a
+# silent attempt to pull `demarc-api:ci` from Docker Hub.
+
+services:
+  minio-init:
+    restart: 'no'
+
+  migrate:
+    image: demarc-api:ci
+    build: !reset null
+    pull_policy: never
+
+  api:
+    image: demarc-api:ci
+    build: !reset null
+    pull_policy: never
+    # The bucket has to exist before anything writes evidence to it.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+
+  worker:
+    image: demarc-worker:ci
+    build: !reset null
+    pull_policy: never

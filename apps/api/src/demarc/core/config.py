@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, PostgresDsn, RedisDsn, field_validator
+from pydantic import PostgresDsn, RedisDsn, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -42,10 +42,12 @@ class Settings(BaseSettings):
     # organization with this slug; in SaaS mode the org comes from the session.
     single_tenant_org_slug: str = "default"
 
-    database_url: PostgresDsn = Field(
-        default="postgresql+asyncpg://demarc_app:demarc_app@postgres:5432/demarc"  # type: ignore[arg-type]
+    # Constructed rather than passed as a string so the default is validated at import
+    # time and mypy sees the declared type.
+    database_url: PostgresDsn = PostgresDsn(
+        "postgresql+asyncpg://demarc_app:demarc_app@postgres:5432/demarc"
     )
-    redis_url: RedisDsn = Field(default="redis://redis:6379/0")  # type: ignore[arg-type]
+    redis_url: RedisDsn = RedisDsn("redis://redis:6379/0")
 
     # Object storage (S3-compatible; MinIO locally).
     s3_endpoint_url: str | None = "http://minio:9000"

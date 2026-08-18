@@ -93,7 +93,5 @@ async def org_session(org_id: uuid.UUID) -> AsyncIterator[AsyncSession]:
 
 async def current_org_setting(session: AsyncSession) -> str | None:
     """Read back the active tenant context. Used by the isolation tests."""
-    result = await session.execute(
-        text("SELECT current_setting(:key, true)"), {"key": ORG_SETTING}
-    )
+    result = await session.execute(text("SELECT current_setting(:key, true)"), {"key": ORG_SETTING})
     return result.scalar_one_or_none()

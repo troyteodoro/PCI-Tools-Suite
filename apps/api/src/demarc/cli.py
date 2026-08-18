@@ -1,8 +1,8 @@
 """Operational commands.
 
-    python -m demarc.cli seed          # demo organization for local development
-    python -m demarc.cli verify-chain  # re-derive the audit chain for every org
-    python -m demarc.cli status        # deployment state
+python -m demarc.cli seed          # demo organization for local development
+python -m demarc.cli verify-chain  # re-derive the audit chain for every org
+python -m demarc.cli status        # deployment state
 """
 
 from __future__ import annotations
