@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, MetaData, func
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Predictable constraint names so Alembic autogenerate produces stable migrations.
 NAMING_CONVENTION = {
@@ -51,15 +51,15 @@ class OrgScopedMixin:
     Present in single-tenant deployments too, so the isolation boundary is exercised
     from day one instead of being introduced at the point of sale (PLAN.md §9).
 
-    `declared_attr` gives each subclass its own Column object rather than sharing one.
+    SQLAlchemy copies a mixin's `mapped_column` for each subclass, so a plain
+    declaration is enough — each table gets its own Column. A `declared_attr` here
+    would type-check as a method, making `instance.org_id` a `Mapped[UUID]` rather
+    than the `UUID` it is at runtime, which defeats mypy on every caller.
     """
 
-    @declared_attr.directive
-    @classmethod
-    def org_id(cls) -> Mapped[uuid.UUID]:
-        return mapped_column(
-            PGUUID(as_uuid=True),
-            ForeignKey("organizations.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        )
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )

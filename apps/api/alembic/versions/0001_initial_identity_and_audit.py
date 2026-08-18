@@ -43,9 +43,10 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("id", name="pk_organizations"),
-        sa.UniqueConstraint("slug", name="uq_organizations_slug"),
     )
-    op.create_index("ix_organizations_slug", "organizations", ["slug"])
+    # `unique=True, index=True` on the model renders as one unique index, not a unique
+    # constraint plus an index. Matching that exactly is what keeps `alembic check` green.
+    op.create_index("ix_organizations_slug", "organizations", ["slug"], unique=True)
 
     op.create_table(
         "users",
@@ -58,9 +59,8 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("id", name="pk_users"),
-        sa.UniqueConstraint("email", name="uq_users_email"),
     )
-    op.create_index("ix_users_email", "users", ["email"])
+    op.create_index("ix_users_email", "users", ["email"], unique=True)
 
     op.create_table(
         "memberships",
@@ -102,11 +102,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["user_id"], ["users.id"], name="fk_sessions_user_id_users", ondelete="CASCADE"
         ),
-        sa.UniqueConstraint("token_hash", name="uq_sessions_token_hash"),
     )
     op.create_index("ix_sessions_org_id", "sessions", ["org_id"])
     op.create_index("ix_sessions_user_id", "sessions", ["user_id"])
-    op.create_index("ix_sessions_token_hash", "sessions", ["token_hash"])
+    op.create_index("ix_sessions_token_hash", "sessions", ["token_hash"], unique=True)
 
     op.create_table(
         "audit_log",
@@ -157,11 +156,17 @@ def _grant_and_protect_data_plane() -> None:
         # FORCE applies the policy to the table owner as well, so a migration or an
         # accidental owner connection cannot read across tenants either.
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
+        # nullif(..., '') is load-bearing. A transaction-local set_config() reverts to
+        # the empty string rather than to NULL once the transaction ends, so on any
+        # pooled connection that has previously served a request, a bare
+        # current_setting(...)::uuid raises "invalid input syntax for type uuid" instead
+        # of returning no rows. Fail closed and quietly, on a fresh connection and a
+        # reused one alike.
         op.execute(
             f"""
             CREATE POLICY {table}_tenant_isolation ON {table}
-            USING (org_id = current_setting('demarc.org_id', true)::uuid)
-            WITH CHECK (org_id = current_setting('demarc.org_id', true)::uuid)
+            USING (org_id = nullif(current_setting('demarc.org_id', true), '')::uuid)
+            WITH CHECK (org_id = nullif(current_setting('demarc.org_id', true), '')::uuid)
             """
         )
 

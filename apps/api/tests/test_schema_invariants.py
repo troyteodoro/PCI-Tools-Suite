@@ -28,9 +28,7 @@ def _migration_constant(name: str) -> tuple[str, ...]:
     """
     tree = ast.parse(MIGRATION.read_text())
     for node in tree.body:
-        targets = (
-            [node.target] if isinstance(node, ast.AnnAssign) else getattr(node, "targets", [])
-        )
+        targets = [node.target] if isinstance(node, ast.AnnAssign) else getattr(node, "targets", [])
         for target in targets:
             if isinstance(target, ast.Name) and target.id == name:
                 assert node.value is not None

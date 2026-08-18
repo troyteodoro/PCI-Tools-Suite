@@ -40,6 +40,15 @@ Tenant context is set with `set_config('demarc.org_id', $1, true)`. The `true` m
 transaction-local, so a connection handed back to the pool never carries a previous
 request's tenant.
 
+The policy compares against `nullif(current_setting('demarc.org_id', true), '')::uuid`,
+and the `nullif` is load-bearing rather than defensive. A transaction-local setting does
+not revert to `NULL` when the transaction ends — it reverts to the empty string, and
+`''::uuid` raises. Without it, a data-plane query with no tenant context returns zero rows
+on a fresh connection and raises `invalid input syntax for type uuid` on a recycled one.
+Since the pool recycles constantly, the recycled path is the normal one. The failure is
+closed either way, but "fail closed and quietly" is the behaviour this ADR promises, and a
+500 is neither quiet nor predictable.
+
 `audit_log` additionally has no `UPDATE` or `DELETE` grant at all. It is append-only in
 the database, not merely by convention.
 
@@ -50,9 +59,20 @@ the database, not merely by convention.
 - Every data-plane query must run inside `org_session()`. Using `auth_session()` for
   domain data returns nothing — a loud, immediate failure rather than a silent one.
 - Migrations run as the owner role, the application as `demarc_app`. Two roles to manage.
+- `FORCE` constrains the table *owner*, not a superuser: `POSTGRES_USER` is created a
+  superuser by the Postgres image in every configuration, and superusers bypass RLS
+  unconditionally. So `FORCE` is what protects an accidental owner-role query in a
+  migration or a maintenance script, and the fact that the runtime role is separate,
+  non-owner, and has no `BYPASSRLS` is what protects everything else. Neither alone is
+  sufficient. This also means a test that probes isolation over an owner connection is
+  measuring nothing — see ADR 0002.
 - Adding a data-plane table means adding it to `DATA_PLANE_TABLES` **and** applying the
-  policy in a migration. The isolation test suite asserts the two agree, so forgetting
-  fails CI rather than shipping.
+  policy in a migration. `tests/integration/test_tenant_isolation.py` is parametrized over
+  `DATA_PLANE_TABLES` and runs against a live Postgres, so a table missing RLS, `FORCE`, a
+  policy or a grant fails CI rather than shipping — with no new test to write per table.
+  (`tests/test_schema_invariants.py` parses the migration and catches a table declared on
+  the wrong plane; it cannot see whether any of the above was actually applied. The two
+  are complements, not duplicates.)
 - The auth plane is protected by code review and a narrow module boundary, not by the
   database. That is a real, accepted limitation, and it is why user enumeration and
   membership lookups are confined to one file.

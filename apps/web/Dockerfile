@@ -7,8 +7,11 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+# No `*` on the lockfile and no `|| npm install` fallback: both would let the image build
+# succeed with dependencies that do not match the lock, which is the one thing `npm ci`
+# exists to prevent. A missing or stale lockfile should fail here, loudly.
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
 COPY tsconfig.json vite.config.ts index.html ./
 COPY src ./src

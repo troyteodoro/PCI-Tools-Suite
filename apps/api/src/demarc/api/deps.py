@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -73,7 +73,7 @@ async def org_db(auth: AuthDep) -> AsyncIterator[AsyncSession]:
 OrgDbDep = Annotated[AsyncSession, Depends(org_db)]
 
 
-def require_role(minimum: Role):  # noqa: ANN201 - FastAPI dependency factory
+def require_role(minimum: Role) -> Callable[..., Awaitable[AuthContext]]:
     """Route guard. `require_writable` is separate because read-only roles (auditor,
     viewer) are about intent, not rank — a QSA outranks nobody but must not edit evidence.
     """
@@ -85,7 +85,7 @@ def require_role(minimum: Role):  # noqa: ANN201 - FastAPI dependency factory
     return _guard
 
 
-def require_writer():  # noqa: ANN201
+def require_writer() -> Callable[..., Awaitable[AuthContext]]:
     async def _guard(auth: AuthDep) -> AuthContext:
         auth.require_writable()
         return auth

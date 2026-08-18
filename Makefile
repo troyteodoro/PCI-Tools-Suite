@@ -1,14 +1,21 @@
 COMPOSE       := docker compose
 COMPOSE_PROD  := docker compose -f docker-compose.yml -f compose.prod.yml
+COMPOSE_CI    := docker compose -f docker-compose.yml -f compose.ci.yml
 API_EXEC      := $(COMPOSE) exec -T api
+
+# Quality tooling runs natively against the deployment's Python version, not the host's.
+PY            := python3.12
+VENV          := apps/api/.venv
+VENV_BIN      := $(VENV)/bin
 
 .DEFAULT_GOAL := help
 .PHONY: help dev up down logs ps seed status verify-chain migrate revision shell-api \
-        shell-db test lint fmt typecheck build-prod up-prod clean reset
+        shell-db venv test test-integration smoke lint fmt typecheck lock \
+        build-prod up-prod clean reset
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-17s\033[0m %s\n", $$1, $$2}'
 
 # ── local development ───────────────────────────────────────────────────────────
 
@@ -16,7 +23,15 @@ dev: ## Start the stack and seed it (first-run command)
 	@test -f .env || (cp .env.example .env && echo "Created .env from .env.example")
 	$(COMPOSE) up -d --build
 	@echo "Waiting for the API to become ready…"
-	@until curl -fsS http://localhost:8000/readyz >/dev/null 2>&1; do sleep 1; done
+	@i=0; until curl -fsS http://localhost:8000/readyz >/dev/null 2>&1; do \
+		i=$$((i+1)); \
+		if [ $$i -ge 120 ]; then \
+			echo "The API did not become ready within 120s. Recent logs:"; \
+			$(COMPOSE) logs --no-color --tail=40 api migrate; \
+			exit 1; \
+		fi; \
+		sleep 1; \
+	done
 	@$(MAKE) --no-print-directory seed
 	@echo ""
 	@echo "  Demarc is up."
@@ -66,20 +81,49 @@ shell-db: ## psql as the least-privileged runtime role (RLS applies)
 
 # ── quality ─────────────────────────────────────────────────────────────────────
 
-test: ## Run the backend test suite
-	$(COMPOSE) run --rm --no-deps \
-		-e PYTHONPATH=/app/src api \
-		sh -c "pip install --quiet pytest pytest-asyncio && python -m pytest tests -q"
+# Quality runs natively, in a venv, not through compose. The old compose-based targets
+# could not work: Dockerfile.api never copies `tests/`, the container runs as a non-root
+# user so an in-container `pip install` is denied, and the `web` service exists only in
+# the local override. Running the same commands CI runs also means a green `make lint`
+# means something.
+$(VENV): apps/api/pyproject.toml apps/api/requirements-dev.txt
+	$(PY) -m venv $(VENV)
+	$(VENV_BIN)/pip install --quiet --upgrade pip
+	$(VENV_BIN)/pip install --quiet --require-hashes -r apps/api/requirements-dev.txt
+	@touch $(VENV)
 
-lint: ## Lint backend and frontend
-	$(COMPOSE) run --rm --no-deps api sh -c "pip install --quiet ruff && ruff check src tests"
-	$(COMPOSE) run --rm --no-deps web npm run lint
+venv: $(VENV) ## Create the backend virtualenv
 
-fmt: ## Format the backend
-	$(COMPOSE) run --rm --no-deps api sh -c "pip install --quiet ruff && ruff format src tests && ruff check --fix src tests"
+test: $(VENV) ## Run the offline backend test suite
+	cd apps/api && PYTHONPATH=src $(CURDIR)/$(VENV_BIN)/python -m pytest -q -m "not integration"
 
-typecheck: ## Typecheck the frontend
-	$(COMPOSE) run --rm --no-deps web npm run typecheck
+test-integration: $(VENV) ## Run the tenant-isolation suite (needs a running stack)
+	cd apps/api && PYTHONPATH=src \
+		DEMARC_MIGRATION_DATABASE_URL=postgresql+asyncpg://$(or $(POSTGRES_USER),demarc):$(or $(POSTGRES_PASSWORD),demarc)@localhost:5432/$(or $(POSTGRES_DB),demarc) \
+		DEMARC_DATABASE_URL=postgresql+asyncpg://demarc_app:$(or $(DEMARC_APP_DB_PASSWORD),demarc_app)@localhost:5432/$(or $(POSTGRES_DB),demarc) \
+		$(CURDIR)/$(VENV_BIN)/python -m pytest -q -m integration
+
+smoke: ## Run the end-to-end assertions against the running stack
+	bash scripts/smoke.sh
+
+lint: $(VENV) ## Lint backend and frontend
+	cd apps/api && $(CURDIR)/$(VENV_BIN)/ruff check src tests alembic
+	cd apps/api && $(CURDIR)/$(VENV_BIN)/ruff format --check src tests
+	cd apps/web && npm run lint
+
+fmt: $(VENV) ## Format the backend
+	cd apps/api && $(CURDIR)/$(VENV_BIN)/ruff format src tests
+	cd apps/api && $(CURDIR)/$(VENV_BIN)/ruff check --fix src tests alembic
+
+typecheck: $(VENV) ## Typecheck the backend (mypy strict) and the frontend
+	cd apps/api && $(CURDIR)/$(VENV_BIN)/mypy src
+	cd apps/web && npm run typecheck
+
+lock: $(VENV) ## Regenerate the dependency locks after editing pyproject.toml
+	cd apps/api && $(CURDIR)/$(VENV_BIN)/uv pip compile pyproject.toml \
+		--generate-hashes --python-version 3.12 -o requirements.txt
+	cd apps/api && $(CURDIR)/$(VENV_BIN)/uv pip compile pyproject.toml --extra dev \
+		--generate-hashes --python-version 3.12 -o requirements-dev.txt
 
 # ── production ──────────────────────────────────────────────────────────────────
 
