@@ -1,4 +1,4 @@
-"""Guards on the tenant-isolation boundary (docs/adr/0001).
+"""Guards on the tenant-isolation boundary (decisions.md D-0004).
 
 The failure these prevent: someone adds a table holding compliance data, forgets the RLS
 policy, and the only thing standing between tenants becomes a `WHERE` clause. CI catches

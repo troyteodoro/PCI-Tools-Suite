@@ -49,7 +49,7 @@ class OrgScopedMixin:
     """Every tenant-scoped table carries this.
 
     Present in single-tenant deployments too, so the isolation boundary is exercised
-    from day one instead of being introduced at the point of sale (PLAN.md §9).
+    from day one instead of being introduced at the point of sale (docs/spec.md §9).
 
     SQLAlchemy copies a mixin's `mapped_column` for each subclass, so a plain
     declaration is enough — each table gets its own Column. A `declared_attr` here

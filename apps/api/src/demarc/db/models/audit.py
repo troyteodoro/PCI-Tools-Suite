@@ -1,7 +1,7 @@
 """Hash-chained audit log.
 
 This tool's own output is evidence, so its own integrity has to be demonstrable
-(PLAN.md §4, §8). Each entry commits to its predecessor: tampering with entry *n* breaks
+(docs/spec.md §4, §8). Each entry commits to its predecessor: tampering with entry *n* breaks
 every hash from *n* onward, and the chain can be verified offline from an export.
 
 Entries are append-only. There is no update path and no delete path, by design.

@@ -1,6 +1,6 @@
 """Application settings.
 
-`DEPLOYMENT_MODE` is the single switch described in PLAN.md §9. The data model, the RLS
+`DEPLOYMENT_MODE` is the single switch described in docs/spec.md §9. The data model, the RLS
 policies and the API surface are identical in both modes; only signup, org resolution,
 auth backends and quotas differ.
 """

@@ -1,6 +1,6 @@
 """Initial schema: organizations, users, memberships, sessions, hash-chained audit log.
 
-Also installs the tenant-isolation machinery described in docs/adr/0001:
+Also installs the tenant-isolation machinery described in decisions.md D-0004:
 least-privilege grants for demarc_app and forced RLS on every data-plane table.
 
 Revision ID: 0001

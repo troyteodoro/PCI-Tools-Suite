@@ -4,7 +4,7 @@
 the migration. That catches a table declared on the wrong plane, but it cannot see
 whether the policy was actually created, whether FORCE was applied, or whether the
 runtime role was granted anything. Those are properties of a live database, so they are
-tested here (docs/adr/0001-tenant-isolation.md).
+tested here (docs/decisions.md D-0004).
 
 Most of the file is parametrized over `DATA_PLANE_TABLES`, so a table added in any later
 milestone is covered the moment it is registered — no new test to remember to write.

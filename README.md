@@ -12,7 +12,10 @@ Detector**, **PCI Checklist**, **ROC Export**.
 > Demarc reports what evidence exists, what is missing, and what a rule found. It never
 > states that a control is compliant — that determination belongs to your assessor.
 
-See [PLAN.md](PLAN.md) for the full architecture, data model and milestone plan.
+See [docs/spec.md](docs/spec.md) for the full architecture and data model,
+[docs/tasks.md](docs/tasks.md) for the milestone plan and current work,
+[docs/constitution.md](docs/constitution.md) for the rules that cannot be broken, and
+[docs/decisions.md](docs/decisions.md) for every decision made and why.
 
 ## Quick start
 
@@ -52,7 +55,7 @@ make clean             # stop and destroy local data
 
 **M0 complete, with CI.** Application shell, tenant isolation, authentication, RBAC and
 the hash-chained audit log, behind gates that block a merge. The five tools are
-placeholders that name the milestone they arrive in — see PLAN.md §11.
+placeholders that name the milestone they arrive in — see docs/tasks.md.
 
 ## Continuous integration
 
@@ -75,7 +78,8 @@ Backend dependencies are hash-pinned in `apps/api/requirements.txt` (runtime, wh
 images install) and `requirements-dev.txt` (adds the tooling). After editing
 `pyproject.toml`, run `make lock` — CI rejects a change to one without the other.
 
-See [ADR 0002](docs/adr/0002-ci-gates.md) for why this came before M1 and what it caught.
+See [docs/decisions.md](docs/decisions.md) D-0005 for why this came before M1 and what
+it caught.
 
 ## Layout
 
@@ -87,7 +91,7 @@ apps/api        FastAPI + SQLAlchemy 2.0 + Alembic; also builds the ARQ worker i
 infra/          Postgres init, Caddy config
 scripts/        smoke.sh — end-to-end assertions against a running stack
 .github/        workflows, Dependabot, PR template
-docs/adr/       decision records
+docs/           constitution.md · spec.md · tasks.md · decisions.md
 docs/mockups/   the UI design spec (two themes: Modernist, Nocturne)
 ```
 
@@ -99,7 +103,7 @@ supersede. `collected_at` (when the evidence was true) is distinct from `ingeste
 **Tenant isolation has two planes.** Data-plane tables carry `org_id` and are protected by
 forced Postgres RLS; the application connects as a non-owner role with no `BYPASSRLS`. All
 data-plane queries must go through `org_session()`. Read
-[docs/adr/0001](docs/adr/0001-tenant-isolation.md) before adding a table.
+[docs/decisions.md](docs/decisions.md) D-0004 before adding a table.
 
 **The audit log is append-only in the database**, not by convention — the runtime role
 holds no `UPDATE` or `DELETE` grant on it.

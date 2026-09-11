@@ -2,7 +2,7 @@
 
 Empty of real jobs at M0 — it exists so the queue, scheduling and container wiring are
 proven before M2 puts the payment-page crawl behind them. The crawl runs in a separate
-image (Dockerfile.worker.crawl) with no database credentials; see PLAN.md §3.
+image (Dockerfile.worker.crawl) with no database credentials; see docs/spec.md §3.
 """
 
 from __future__ import annotations

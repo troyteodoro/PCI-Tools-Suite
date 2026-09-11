@@ -1,7 +1,7 @@
 """Auth-plane operations.
 
 This is the *only* module permitted to query `users`, `memberships`, `sessions` and
-`organizations` without a tenant context (docs/adr/0001). Every query here filters by
+`organizations` without a tenant context (decisions.md D-0004). Every query here filters by
 organization explicitly. Keep this file small and keep it reviewed.
 """
 

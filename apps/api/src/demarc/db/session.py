@@ -1,6 +1,6 @@
 """Async engine and the org-scoped session context.
 
-Two planes, deliberately (see docs/adr/0001-tenant-isolation.md):
+Two planes, deliberately (see docs/decisions.md D-0004):
 
 * **Auth plane** — `organizations`, `users`, `memberships`, `sessions`. No RLS: these are
   the mechanism that establishes tenancy, so they cannot depend on it. Always queried
