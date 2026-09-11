@@ -120,14 +120,14 @@ jobs:
       - run: npm run lint
       - run: npm run build # tsc --noEmit && vite build
 
-      # CLAUDE.md rule 5 / PLAN.md §8: the UI reports what evidence exists and what a
+      # Constitution §1.5 / docs/spec.md §8: the UI reports what evidence exists and what a
       # rule found. Only a QSA determines compliance. Nothing else can enforce a claim
       # about copy, and a rules engine cannot un-say it once shipped.
       - name: The UI states evidence, not compliance
         run: |
           if grep -rniE '\b(you are|are now|is now|fully) compliant\b|\bcompliance (achieved|confirmed|verified)\b' \
                  src --include='*.tsx' --include='*.ts' | grep -v 'ci:allow-compliance-copy'; then
-            echo "::error::UI copy asserts compliance. Report the evidence and the finding instead (PLAN.md §8)."
+            echo "::error::UI copy asserts compliance. Report the evidence and the finding instead (docs/spec.md §8)."
             exit 1
           fi
 
@@ -205,6 +205,6 @@ jobs:
           alembic upgrade head
 
       # Parametrized over DATA_PLANE_TABLES, so every table a later milestone adds is
-      # covered the moment it is registered (docs/adr/0001).
+      # covered the moment it is registered (decisions.md D-0004).
       - name: Tenant isolation suite
         run: python -m pytest -q -m integration

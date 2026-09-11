@@ -1,11 +1,10 @@
-# Demarc — PCI Tools Suite
+# Demarc — Specification
 
-**Project plan and architectural context.** This document is the source of truth for what
-we are building and why. Read it before starting work in a new session.
-
-Status: **M0 complete** — shell, tenant isolation, auth, RBAC, hash-chained audit log.
-Next: M1 (evidence spine).
-Last updated: 2026-08-13.
+**Requirements, scope, and architecture.** This document says what Demarc is and how it is
+built. It is read through the routing protocol in `docs/constitution.md`: constitution
+first, then the current task in `docs/tasks.md`, then the sections here that the task
+references. Changing this document requires an entry in `docs/decisions.md`. Current
+status and the order of work live in `docs/tasks.md`, not here.
 
 ---
 
@@ -43,25 +42,11 @@ themes. Treat it as the design spec.
 
 ---
 
-## 2. Decisions locked
+## 2. Decisions
 
-| Decision | Choice | Why |
-|---|---|---|
-| **Product name** | **Demarc** | The telecom demarcation point — where your responsibility ends and someone else's begins. That is exactly what a PCI scope boundary is, and network/security engineers read it instantly. Short enough for the sidebar at 12.5px. *Domain and trademark not yet cleared — do that before any public use.* |
-| **Backend** | Python 3.12 + FastAPI | Playwright drives the crawler; cloud SDKs (boto3, azure, google-cloud) for drift connectors are first-class; strong document/archive tooling for ROC export; async throughout |
-| **Frontend** | React 19 + TypeScript + Vite | Per the brief. Token-driven CSS ported from the mockup's design systems |
-| **Tenancy** | `org_id` in the schema from day one; **single-tenant is the first build target**, SaaS is a second build configuration over the same core | Single-tenant is what a security engineer can get approved to run inside their own environment. Carrying `org_id` means SaaS is a config flip, not a migration |
-| **Drift inputs** | All four, sequenced: file import → payment-monitor internal → read-only cloud connectors → DNS/network discovery | File import needs no credentials and is demoable immediately; every other source is an adapter behind the same normalizer |
-| **PCI Coach** | Deterministic rules engine only, no LLM | Compliance advice must be reproducible and defensible. A versioned rules pack means any statement the tool made six months ago can be re-derived exactly. No API key, no network dependency, no hallucinated compliance claims |
-
-### Assumptions made without asking
-
-- **Auth**: local accounts (argon2id, session cookies, TOTP-capable) with RBAC in the
-  single-tenant build. OIDC/SAML added in the SaaS build configuration.
-- **Theme**: both Modernist and Nocturne ship in every build as a runtime user preference,
-  not a build-time flag. They are pure CSS custom-property swaps.
-- **Standard version**: PCI DSS v4.0.1 only. The catalog is versioned so v4.1 can be
-  loaded alongside without a migration.
+Locked decisions and their rationale live in `docs/decisions.md` — see D-0002 (platform
+and product decisions) and D-0003 (M0 assumptions). Do not re-litigate them; superseding
+one requires a new decision entry approved by the user.
 
 ---
 
@@ -395,7 +380,8 @@ read credentials to their environment. It is a security-impacting system for its
 - **Crawler isolation** — the Playwright container renders untrusted third-party
   JavaScript. Egress-only network, no database credentials, no object-storage credentials,
   results returned via the queue. Non-root, seccomp default, dropped capabilities.
-- **Authorization gate** on DNS/network discovery, as above.
+- **Authorization gate** on DNS/network discovery — see §6.3's domain-ownership
+  attestation.
 - **RBAC** — at minimum `owner | engineer | auditor(read-only) | viewer`. The auditor role
   matters: you will want to hand an assessor a read-only login.
 - The UI must never state a control **is** compliant. It states what evidence exists, what
@@ -440,9 +426,9 @@ Applied automatically by `docker compose up`.
 
 ### Continuous integration — GitHub Actions
 
-Landed after M0, ahead of the M8 slot it was originally scheduled for. The reasoning: the
-two gates that matter most (`alembic check` and the tenant-isolation suite) are worth far
-more *before* M1 adds four data-plane tables than after.
+Landed after M0, ahead of the M8 slot it was originally scheduled for (D-0005). The
+reasoning: the two gates that matter most (`alembic check` and the tenant-isolation suite)
+are worth far more *before* M1 adds four data-plane tables than after.
 
 **`ci.yml`** — pull requests and pushes to `main`. Three jobs, path-filtered by a
 `changes` job rather than by `on.*.paths`, so a skipped job still satisfies a required
@@ -461,7 +447,7 @@ exercises the Dockerfiles, the Postgres init SQL, container ordering, the health
 the operational CLI together. Deliberately *not* a required check — a frontend-only change
 should not wait on it.
 
-Supporting decisions, recorded in [ADR 0002](docs/adr/0002-ci-gates.md):
+Supporting decisions, recorded in `docs/decisions.md` (D-0005):
 
 - **Quality runs natively, not through compose.** The same commands in CI and in
   `make lint` / `make test`, so a green Makefile means something.
@@ -479,8 +465,8 @@ Two other things are deliberately absent. There is no CODEOWNERS: on a one-perso
 repository it requests review from you, on your own pull request. And there is no coverage
 threshold, which would measure very little until the rules engine exists in M3.
 
-Image publishing to GHCR stays in M8 — see the milestone note there for what it still
-needs.
+Image publishing to GHCR stays in M8 — see the milestone stub in `docs/tasks.md` for what
+it still needs.
 
 ### Tenancy as a build configuration
 
@@ -497,7 +483,7 @@ A single environment variable, `DEPLOYMENT_MODE=single_tenant|saas`, switches:
 
 The data model, RLS policies, and API surface are **identical** in both. `org_id` is
 present and enforced in single-tenant too — the isolation boundary is exercised from day
-one rather than bolted on at the point of sale.
+one rather than bolted on at the point of sale (D-0004).
 
 ---
 
@@ -505,8 +491,7 @@ one rather than bolted on at the point of sale.
 
 ```
 PCI_Tools_Suite/
-├── PLAN.md                     ← this file
-├── CLAUDE.md                   ← context pointer for future sessions
+├── CLAUDE.md                   ← routing protocol pointer for coding sessions
 ├── Makefile                    ← dev, test, lint, lock, smoke, seed, build
 ├── docker-compose.yml          base · compose.override.yml (local)
 ├── compose.prod.yml            compose.ci.yml (CI: real topology, images from the
@@ -536,92 +521,19 @@ PCI_Tools_Suite/
 ├── packages/catalog/           PCI DSS v4.0.1 requirement seeds
 ├── infra/{caddy,postgres}/
 └── docs/
-    ├── mockups/                the provided .dc.html + _ds design systems
-    └── adr/                    decision records as they accumulate
+    ├── constitution.md         rules that cannot be broken; the routing protocol
+    ├── spec.md                 ← this file
+    ├── tasks.md                current task breakdown + milestone backlog
+    ├── decisions.md            append-only decision log
+    └── mockups/                the provided .dc.html + _ds design systems
 ```
 
 ---
 
 ## 11. Milestones
 
-Ordered by dependency. Each is independently demoable.
-
-- **M0 — Scaffolding. ✅ Complete.** Repo, local compose, FastAPI + Postgres + Alembic,
-  React shell with both themes ported from `_ds`, auth, org/user/membership with `org_id`
-  and RLS, audit log. *Exit: `make dev` gives a logged-in empty app in both themes.*
-  Delivered beyond the original scope: the two-plane isolation model
-  ([ADR 0001](docs/adr/0001-tenant-isolation.md)) with forced RLS verified against a
-  wrong-tenant context; an append-only audit log enforced by grant, not convention; and
-  a semantic CSS token layer, needed because the two mockups turned out not to be a pure
-  token swap.
-
-- **M0.5 — CI. ✅ Complete.** Pulled forward from M8 (§9, [ADR 0002](docs/adr/0002-ci-gates.md)).
-  Two workflows, hash-pinned dependency locks, and the tenant-isolation integration suite.
-  Standing it up surfaced five defects that had no way of being caught before: model and
-  migration disagreeing on three unique indexes; an RLS policy that raised instead of
-  returning zero rows on any recycled pooled connection; `minio-init` present only in the
-  local override, so production had no evidence bucket; `make test` and `make lint` that
-  could not run at all; and an `npm ci || npm install` fallback that defeated the lockfile
-  check. *Exit: a pull request cannot merge with a data-plane table that lacks a policy or
-  a grant.*
-
-- **M1 — Evidence spine.** Artifacts (content-addressed, MinIO), requirement catalog seed,
-  checklist CRUD, evidence linking, upload with PAN detection, dashboard shell with real
-  rollups. *Everything else attaches here — do not skip ahead.*
-  CI additions that belong with this milestone rather than before it:
-  a **PAN-detection gate** (Luhn-validated vectors, near-miss negatives so a 16-digit order
-  number is not rejected, and a smoke assertion that a rejected upload leaves no trace in
-  the bucket *or* in any container log); and an **OpenAPI → TypeScript drift check**,
-  which turns §3's "never hand-maintained across the boundary" into something mechanical.
-
-- **M2 — Payment Page Monitor.** Crawl worker, snapshots, script capture including
-  runtime-injected, SRI verification, diff, script register, alerting, evidence artifact
-  emit. *Exit: the mockup's Script Monitor screen, live, with a real unapproved-script
-  finding.*
-  CI: Playwright E2E (the `playwright install` cache is shared with the crawl image, so
-  the cost is paid once); a weekly `pip-audit` / `npm audit` / Trivy scan reporting to the
-  Security tab rather than blocking pull requests; type-aware ESLint once there is real
-  async UI code for `no-floating-promises` to catch. `tests/test_compose_credentials.py`
-  already asserts the crawler holds no database or storage credentials — the test is
-  written and passes vacuously for the crawl service until this milestone creates it.
-
-- **M3 — Rules engine + Checklist analyzer + Coach.** Engine, first rules pack, analyzer
-  verdicts, risk-ordered gap list, context-scoped Coach sidebar. *Exit: Checklist screen
-  and the Coach panel on every route.*
-  CI: the determinism gates that the choice of a rules engine over an LLM exists to make
-  possible — a repeated pack run is byte-identical; an AST walk over `rules/**` rejects
-  I/O, `datetime.now()` and `random`; and a changed pack without a version bump fails,
-  because findings stamped with an unchanged version would no longer be reproducible.
-
-- **M4 — Scope Map.** Assets, zones, data flows, scope declaration versioning and signing,
-  nested-containment visualization, scope + data-flow export artifact.
-
-- **M5 — Drift Detector.** Observation ingest (file import + payment-monitor source),
-  normalizer, reconciler rules, findings UI with declared/observed contrast and
-  dispositions. *Depends on M4 — there is nothing to compare against without a declared
-  scope.*
-
-- **M6 — ROC Export.** Package builder, manifest, open-items CSV, redaction pass, signed
-  download.
-
-- **M7 — Drift connectors.** AWS read-only first (inventory, security groups, buckets,
-  flow logs), then Azure/GCP, then DNS/network discovery behind the attestation gate.
-  Brings secret storage and rotation with it.
-  CI: gitleaks becomes worth its noise here, with a `.gitleaks.toml` allowlisting the
-  deliberate development credentials and custom rules for the cloud-connector key shapes.
-  Before this milestone GitHub's push protection covers the same ground without the false
-  positives.
-
-- **M8 — Production hardening + SaaS configuration.** `compose.prod.yml`, backups,
-  OIDC/SAML, invites, quotas. *CI image builds and the tenant-isolation test suite landed
-  early — see M0.5.* What remains here is **release**: a tag-triggered workflow publishing
-  the three images to GHCR with build-provenance attestation and an SBOM, and capturing
-  each digest.
-  One prerequisite, and it is not cosmetic: `compose.prod.yml` currently pins by *tag*
-  (`${DEMARC_REGISTRY}/demarc-api:${DEMARC_VERSION}`) while its own header and §9 both
-  promise digest pinning. Those lines have to become `@${DEMARC_API_DIGEST}` before a
-  release workflow can deliver what the file claims. Publishing images nothing pulls, on
-  the other hand, is ceremony — which is why this waits rather than shipping with M0.5.
+The milestone sequence, exit criteria, and the current task breakdown live in
+`docs/tasks.md`.
 
 ---
 
@@ -642,7 +554,7 @@ it observes, compares, and reports.
    rather than dropped.
 4. *False confidence* — the worst failure mode is telling someone they are covered when
    they are not. Every rule gets fixture tests; the UI states evidence, never compliance.
-   The copy half is now gated in CI; the rules half becomes a gate in M3.
+   The copy half is gated in CI; the rules half becomes a gate in M3.
 5. *This tool entering its own scope* — once it holds cloud read credentials it is a
    security-impacting system for its users. §8 is not optional polish.
 6. *Gates that pass vacuously* — a test that cannot fail is worse than a missing one,
@@ -651,22 +563,3 @@ it observes, compares, and reports.
    check of forced RLS via the owner connection proves nothing, because `POSTGRES_USER` is
    a superuser and superusers bypass RLS whatever `FORCE` says. When adding a gate,
    confirm it fails against the broken state before trusting it.
-
----
-
-## 13. Immediate next step
-
-**M1 — the evidence spine.** M0 and the CI gates (M0.5) are done. The scaffolding and the
-evidence spine are the two milestones where shortcuts are most expensive later; the five
-tools are comparatively mechanical once the artifact model and the rules engine exist.
-
-Start with the artifact model itself — content addressing, the `collected_at` /
-`ingested_at` split, and supersede-not-update — before the catalog seed or any CRUD.
-Everything else in the product hangs off it, and it is the one thing that is genuinely
-painful to change once evidence exists.
-
-Two gates now stand behind that work, and they are the reason CI came first: `alembic
-check` fails if the models and migrations disagree, and
-`tests/integration/test_tenant_isolation.py` is parametrized over `DATA_PLANE_TABLES`, so
-each new table is checked for RLS, `FORCE`, a policy and a grant the moment it is
-registered. Adding `artifacts` and `evidence_links` should require no new isolation tests.

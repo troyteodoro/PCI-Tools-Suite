@@ -8,7 +8,7 @@ import styles from './AppShell.module.css';
  *
  * A renderer, not a thinker. From M3 it displays findings produced by the deterministic
  * rules engine; every card will carry the rules-pack version that produced it, so any
- * statement can be re-derived months later (PLAN.md §7).
+ * statement can be re-derived months later (docs/spec.md §7).
  *
  * Until then it explains the milestone state of whatever screen you are on, rather than
  * showing invented advice — placeholder advice in a compliance tool is worse than none.

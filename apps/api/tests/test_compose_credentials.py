@@ -1,13 +1,13 @@
 """Which service is handed which credential is part of the security boundary.
 
-Two rules from CLAUDE.md and PLAN.md §8/§9 are expressed in the compose files rather than
-in code, so they are tested by parsing the compose files:
+Two rules from the constitution and docs/spec.md §8/§9 are expressed in the compose
+files rather than in code, so they are tested by parsing the compose files:
 
 1. The crawl worker renders untrusted third-party JavaScript. It returns results through
    the queue and holds no database or object-storage credentials. The service arrives in
    M2; the rule is asserted now so it cannot arrive wrong.
 2. Only the one-shot `migrate` job gets the owner/migration credential. A long-running
-   service holding it would make the least-privilege split in docs/adr/0001 decorative.
+   service holding it would make the least-privilege split in decisions.md D-0004 decorative.
 
 Offline: parses YAML, starts nothing.
 """
@@ -77,7 +77,7 @@ def _secret_names(service: dict[str, Any]) -> set[str]:
 
 @pytest.mark.parametrize("path", COMPOSE_FILES, ids=lambda p: p.name)
 def test_crawl_services_get_no_data_credentials(path: Path) -> None:
-    """PLAN.md §8: the crawler container gets no database or storage credentials."""
+    """Constitution §1.6: the crawler container gets no database or storage credentials."""
     for name, service in _services(path).items():
         if "crawl" not in name:
             continue
@@ -100,7 +100,7 @@ def test_only_the_migrate_job_holds_the_owner_credential(path: Path) -> None:
         assert not holders, (
             f"{name} in {path.name} holds {MIGRATION_CREDENTIAL}. Only the one-shot "
             "`migrate` service may; a long-running service with it defeats the "
-            "least-privilege split in docs/adr/0001."
+            "least-privilege split in decisions.md D-0004."
         )
 
 

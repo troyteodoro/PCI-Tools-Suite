@@ -15,7 +15,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       # Creates the least-privileged demarc_app role on first start. RLS only means
-      # something because the application is not the table owner (docs/adr/0001).
+      # something because the application is not the table owner (decisions.md D-0004).
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-demarc} -d ${POSTGRES_DB:-demarc}']

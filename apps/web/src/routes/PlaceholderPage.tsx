@@ -34,7 +34,7 @@ export function PlaceholderPage({
         <div className={styles.emptyTitle}>Not built yet — scheduled for {milestone}</div>
         <p className={styles.emptyBody}>
           The application shell, tenant isolation and audit log are in place (M0). This tool
-          is built in {milestone}; see <code>PLAN.md</code> §11 for the sequence and what each
+          is built in {milestone}; see <code>docs/tasks.md</code> for the sequence and what each
           milestone depends on.
         </p>
         <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>

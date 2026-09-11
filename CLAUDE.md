@@ -1,7 +1,23 @@
 # Demarc — PCI Tools Suite
 
-**Read `PLAN.md` first.** It is the source of truth for scope, architecture, data model,
-milestones, and the decisions already made. Do not re-litigate locked decisions in §2.
+This project runs on **spec-driven, task-driven development**. Four documents govern all
+work, and every prompt is handled through this routing protocol — strictly, in order:
+
+1. **`docs/constitution.md`** — the rules that cannot be broken. Read it first. It is
+   binding, never violated, and never edited without an explicit user-approved amendment.
+2. **`docs/tasks.md`** — find the current task. Work proceeds task by task, in order. A
+   task not in the file is not worked until it is added (which requires a decision entry).
+3. **`docs/spec.md` + `docs/decisions.md`** — read the spec sections and decision entries
+   the task references before touching code. Do not re-litigate logged decisions.
+4. **`docs/decisions.md` (append)** — any decision, assumption, or discovered oversight
+   is appended to the log — and reflected in spec.md / tasks.md — *before* work proceeds.
+   The log is append-only: supersede entries, never edit them.
+
+TDD is risk-tiered (constitution §2.2): the failing test comes **before** the
+implementation on the strict surfaces (rules engine, tenant isolation, evidence
+immutability, PAN detection, audit hash chain); everywhere else tests land in the same
+commit/PR. A task is done only when its acceptance criteria are met and the gates have
+actually been run and passed (constitution §3.2).
 
 ## Quick orientation
 
@@ -14,31 +30,18 @@ milestones, and the decisions already made. Do not re-litigate locked decisions 
 - The UI mockup in `docs/mockups/` is the design spec. Two themes: Modernist (light) and
   Nocturne (dark), both runtime-selectable, tokens in `_ds/*/styles.css`.
 
-## Rules that are not negotiable
-
-1. **Evidence artifacts are immutable and content-addressed.** Never update or delete —
-   supersede. `collected_at` (when the evidence was true) is distinct from `ingested_at`.
-2. **No cardholder data.** PAN detection runs on every ingest; matches are rejected, not
-   stored.
-3. **Rules are pure functions** over an injected `EvidenceGraph` with an injected clock.
-   No I/O, no `datetime.now()`. Every rule ships with fixture tests.
-4. **The rules-pack version is stamped on every finding, verdict, and generated artifact.**
-   Reproducibility is the reason we chose a deterministic engine over an LLM.
-5. **The UI never asserts compliance.** It reports what evidence exists, what is missing,
-   and what a rule found. The QSA determines compliance.
-6. **The crawler container gets no database or storage credentials.** It renders untrusted
-   third-party JavaScript and returns results through the queue only.
+Full architecture, data model, and per-tool specifications: `docs/spec.md`.
 
 ## Current state
 
-**M0 complete, plus CI.** App shell, two-plane tenant isolation with forced RLS, session
-auth, RBAC, hash-chained audit log, local + production Docker configurations. `make dev`
-brings up a working, seeded deployment. Backend: 45 tests (35 offline, 10 tenant-isolation
-integration), ruff clean, mypy strict clean. Frontend: eslint, typecheck and production
-build clean.
+**M0 and M0.5 complete.** App shell, two-plane tenant isolation with forced RLS, session
+auth, RBAC, hash-chained audit log, local + production Docker configurations, CI gates.
+`make dev` brings up a working, seeded deployment. Backend: 45 tests (35 offline, 10
+tenant-isolation integration), ruff clean, mypy strict clean. Frontend: eslint, typecheck
+and production build clean.
 
-**Next: M1 — the evidence spine** (§4, §11): content-addressed artifacts on S3/MinIO, the
-requirement catalog seed, checklist CRUD, evidence linking, PAN detection on ingest.
+**Current milestone: M1 — the evidence spine.** The task breakdown lives in
+`docs/tasks.md`; start at the first `todo` task.
 
 ### CI
 
@@ -61,9 +64,9 @@ Dependencies are pinned with hashes in `apps/api/requirements*.txt`, which is wh
 CI and the images install. After editing `pyproject.toml`, run `make lock` — CI fails a
 PR that changes one without the other.
 
-Read [ADR 0002](docs/adr/0002-ci-gates.md) before adding or relaxing a gate. It records
-why CI came before M1 and, more usefully, why an obvious-looking check can measure
-nothing — confirm a new gate fails against the broken state before trusting it.
+Read `docs/decisions.md` D-0005 before adding or relaxing a gate. It records why CI came
+before M1 and, more usefully, why an obvious-looking check can measure nothing — confirm
+a new gate fails against the broken state before trusting it (constitution §2.3).
 
 Useful commands: `make dev`, `make test`, `make test-integration`, `make smoke`,
 `make lint`, `make typecheck`, `make lock`, `make verify-chain`, `make status`,
