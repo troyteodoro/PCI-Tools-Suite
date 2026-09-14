@@ -6,7 +6,7 @@
 # JavaScript and so gets its own image with no database or object-storage credentials,
 # added in M2 as Dockerfile.worker.crawl (PLAN.md §3, §8).
 
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
