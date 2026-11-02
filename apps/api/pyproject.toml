@@ -4,14 +4,14 @@ version = "0.1.0"
 description = "Demarc — PCI DSS evidence and scope tooling"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
+    "fastapi>=0.162.0",
+    "uvicorn[standard]>=0.54.0",
     # [email] pulls email-validator, required by the EmailStr fields in api.schemas.
-    "pydantic[email]>=2.9",
-    "pydantic-settings>=2.6",
-    "sqlalchemy[asyncio]>=2.0.36",
-    "asyncpg>=0.30",
-    "alembic>=1.14",
+    "pydantic[email]>=2.14.2",
+    "pydantic-settings>=2.16.2",
+    "sqlalchemy[asyncio]>=2.1.6",
+    "asyncpg>=0.32.0",
+    "alembic>=1.20.1",
     "argon2-cffi>=23.1",
     "structlog>=24.4",
     "arq>=0.26",
@@ -22,16 +22,16 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.3",
-    "pytest-asyncio>=0.24",
-    "ruff>=0.8",
-    "mypy>=1.13",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1",
+    "ruff>=0.17.3",
+    "mypy>=2.4.1",
     # The compose files are an enforced part of the security boundary (which service is
     # handed which credential), so the tests parse them.
     "pyyaml>=6.0",
     "types-pyyaml>=6.0",
     # Generates requirements*.txt via `make lock`.
-    "uv>=0.5",
+    "uv>=0.13.6",
 ]
 
 [build-system]
